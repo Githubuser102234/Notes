@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>My Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
-      --bg: #ffffff;
-      --text: #000000;
+      --bg: #fff;
+      --text: #000;
       --card: #f3f3f3;
     }
-
     body.dark {
       --bg: #121212;
-      --text: #ffffff;
-      --card: #1e1e1e;
+      --text: #fff;
+      --card: #1f1f1f;
     }
-
     body {
-      margin: 0 auto;
-      padding: 20px;
-      max-width: 600px;
-      font-family: sans-serif;
       background: var(--bg);
       color: var(--text);
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
       transition: 0.3s;
     }
-
     input, textarea, button {
       width: 100%;
       margin: 8px 0;
@@ -36,192 +33,169 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-
     button {
       background: #007bff;
       color: white;
-      border: none;
       cursor: pointer;
+      border: none;
     }
-
     button:hover {
       background: #0056b3;
     }
-
     .note {
       background: var(--card);
-      border-radius: 5px;
       padding: 10px;
+      border-radius: 5px;
       margin: 10px 0;
+      cursor: pointer;
     }
-
-    .note h3, .note p {
-      margin: 0 0 8px;
-      word-wrap: break-word;
+    .note h3 {
+      margin: 0 0 5px;
     }
-
-    .actions {
-      display: flex;
-      gap: 10px;
+    .note small {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: gray;
     }
-
-    .actions button {
-      flex: 1;
-      padding: 6px;
-      font-size: 14px;
-    }
-
     #themeToggle {
       float: right;
-      margin-top: -40px;
+      margin-top: -35px;
     }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 15px;
-      }
-
-      #themeToggle {
-        float: none;
-        display: block;
-        margin: 10px 0;
-      }
+    #noteEditor {
+      display: none;
     }
   </style>
 </head>
 <body>
-
   <h1>My Notes</h1>
   <button id="themeToggle">🌙 Toggle Theme</button>
 
   <div id="authSection">
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
     <button id="loginBtn">Login</button>
     <button id="signupBtn">Sign Up</button>
     <button id="resetBtn">Reset Password</button>
   </div>
 
-  <div id="noteSection" style="display: none;">
+  <div id="mainMenu" style="display: none;">
     <button id="logoutBtn">Logout</button>
-    <input type="text" id="noteTitle" placeholder="Note title" />
-    <textarea id="noteText" placeholder="Write your note..." rows="4"></textarea>
+    <input type="text" id="noteTitle" placeholder="Note title">
+    <textarea id="noteText" rows="3" placeholder="Write your note..."></textarea>
     <button id="saveNoteBtn">Save Note</button>
 
-    <input type="text" id="searchBox" placeholder="Search notes..." />
+    <input type="text" id="searchBox" placeholder="Search notes...">
+
     <h2>Your Notes</h2>
     <div id="notesContainer"></div>
+  </div>
+
+  <div id="noteEditor">
+    <button id="backBtn">⬅ Back</button>
+    <input type="text" id="editTitle" placeholder="Edit title">
+    <textarea id="editContent" rows="10"></textarea>
+    <button id="updateNoteBtn">Save Changes</button>
+    <button id="deleteNoteBtn">Delete Note</button>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
     import {
-      getAuth,
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged,
-      sendPasswordResetEmail
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      onAuthStateChanged, signOut, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
     import {
-      getFirestore,
-      collection,
-      addDoc,
-      getDocs,
-      updateDoc,
-      deleteDoc,
-      doc,
-      query,
-      orderBy,
-      serverTimestamp
+      getFirestore, collection, addDoc, getDoc, getDocs, updateDoc,
+      deleteDoc, doc, query, orderBy, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDEkpRfo6k8H_arfsnAGyHztWU_sj_pjnY",
       authDomain: "notes-9c204.firebaseapp.com",
       projectId: "notes-9c204",
-      storageBucket: "notes-9c204.appspot.com",
+      storageBucket: "notes-9c204.firebasestorage.app",
       messagingSenderId: "1059724833534",
       appId: "1:1059724833534:web:a6360301650585a248ebaf",
       measurementId: "G-MZ9R21GTQJ"
     };
 
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
+    getAnalytics(app);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const authSection = document.getElementById("authSection");
-    const noteSection = document.getElementById("noteSection");
-    const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("password");
-    const noteTitleInput = document.getElementById("noteTitle");
-    const noteTextInput = document.getElementById("noteText");
-    const notesContainer = document.getElementById("notesContainer");
-    const searchBox = document.getElementById("searchBox");
-    const themeToggle = document.getElementById("themeToggle");
+    const authSection = document.getElementById('authSection');
+    const mainMenu = document.getElementById('mainMenu');
+    const noteEditor = document.getElementById('noteEditor');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const noteTitleInput = document.getElementById('noteTitle');
+    const noteTextInput = document.getElementById('noteText');
+    const notesContainer = document.getElementById('notesContainer');
+    const searchBox = document.getElementById('searchBox');
+    const themeToggle = document.getElementById('themeToggle');
+
+    const editTitle = document.getElementById('editTitle');
+    const editContent = document.getElementById('editContent');
+    const updateNoteBtn = document.getElementById('updateNoteBtn');
+    const deleteNoteBtn = document.getElementById('deleteNoteBtn');
+    const backBtn = document.getElementById('backBtn');
 
     let currentUser = null;
+    let currentNoteId = null;
     let notes = [];
 
-    // Theme preference load
-    if (localStorage.getItem("theme") === "dark") {
-      document.body.classList.add("dark");
-    }
+    const saveTheme = () => {
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    };
+    const loadTheme = () => {
+      const theme = localStorage.getItem("theme");
+      if (theme === "dark") document.body.classList.add("dark");
+    };
+    loadTheme();
 
     themeToggle.onclick = () => {
       document.body.classList.toggle("dark");
-      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+      saveTheme();
     };
 
     onAuthStateChanged(auth, user => {
       if (user) {
         currentUser = user;
-        authSection.style.display = "none";
-        noteSection.style.display = "block";
+        authSection.style.display = 'none';
+        mainMenu.style.display = 'block';
+        noteEditor.style.display = 'none';
         loadNotes();
+        handleHashChange(); // In case we land directly on a note
       } else {
         currentUser = null;
-        authSection.style.display = "block";
-        noteSection.style.display = "none";
+        authSection.style.display = 'block';
+        mainMenu.style.display = 'none';
+        noteEditor.style.display = 'none';
       }
     });
 
-    document.getElementById("signupBtn").onclick = async () => {
-      try {
-        await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-      } catch (err) {
-        alert(err.message);
-      }
+    document.getElementById('signupBtn').onclick = () => createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(alert);
+    document.getElementById('loginBtn').onclick = () => signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(alert);
+    document.getElementById('logoutBtn').onclick = () => signOut(auth);
+    document.getElementById('resetBtn').onclick = () => {
+      sendPasswordResetEmail(auth, emailInput.value).then(() => alert("Reset email sent")).catch(alert);
     };
 
-    document.getElementById("loginBtn").onclick = async () => {
-      try {
-        await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-      } catch (err) {
-        alert(err.message);
-      }
-    };
-
-    document.getElementById("logoutBtn").onclick = () => signOut(auth);
-
-    document.getElementById("resetBtn").onclick = async () => {
-      try {
-        await sendPasswordResetEmail(auth, emailInput.value);
-        alert("Password reset link sent!");
-      } catch (err) {
-        alert(err.message);
-      }
-    };
-
-    document.getElementById("saveNoteBtn").onclick = async () => {
+    document.getElementById('saveNoteBtn').onclick = async () => {
       const title = noteTitleInput.value.trim();
       const content = noteTextInput.value.trim();
       if (!title || !content) return alert("Fill in both fields.");
 
-      const ref = collection(db, "users", currentUser.uid, "notes");
-      await addDoc(ref, { title, content, createdAt: serverTimestamp() });
+      const hash = Math.random().toString(36).substring(2, 8);
+      await addDoc(collection(db, "users", currentUser.uid, "notes"), {
+        title,
+        content,
+        hash,
+        createdAt: serverTimestamp()
+      });
 
       noteTitleInput.value = "";
       noteTextInput.value = "";
@@ -233,47 +207,74 @@
       const q = query(ref, orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       notes = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      renderNotes(notes);
+      renderNotes();
     }
 
-    function renderNotes(filtered) {
-      const keyword = searchBox.value.toLowerCase();
+    function renderNotes() {
+      const searchTerm = searchBox.value.toLowerCase();
       notesContainer.innerHTML = "";
 
-      filtered
-        .filter(n => n.title.toLowerCase().includes(keyword) || n.content.toLowerCase().includes(keyword))
+      notes.filter(n => n.title.toLowerCase().includes(searchTerm) || n.content.toLowerCase().includes(searchTerm))
         .forEach(note => {
           const div = document.createElement("div");
           div.className = "note";
           div.innerHTML = `
-            <h3 contenteditable onblur="this.dataset.edited=true">${note.title}</h3>
-            <p contenteditable onblur="this.dataset.edited=true">${note.content}</p>
-            <div class="actions">
-              <button onclick="updateNote('${note.id}', this)">💾 Save</button>
-              <button onclick="deleteNote('${note.id}')">🗑️ Delete</button>
-            </div>
+            <h3>${note.title}</h3>
+            <p>${note.content.slice(0, 60)}...</p>
+            <small>#${note.hash}</small>
           `;
+          div.onclick = () => {
+            location.hash = note.hash;
+          };
           notesContainer.appendChild(div);
         });
     }
 
-    window.updateNote = async (id, btn) => {
-      const card = btn.closest(".note");
-      const title = card.querySelector("h3").innerText;
-      const content = card.querySelector("p").innerText;
-      const ref = doc(db, "users", currentUser.uid, "notes", id);
-      await updateDoc(ref, { title, content });
-      alert("Note updated.");
+    window.onhashchange = handleHashChange;
+
+    async function handleHashChange() {
+      const hash = location.hash.replace("#", "");
+      if (!hash || !currentUser) return;
+
+      const found = notes.find(n => n.hash === hash);
+      if (!found) return;
+
+      currentNoteId = found.id;
+      editTitle.value = found.title;
+      editContent.value = found.content;
+
+      mainMenu.style.display = 'none';
+      noteEditor.style.display = 'block';
+    }
+
+    backBtn.onclick = () => {
+      location.hash = "";
+      mainMenu.style.display = 'block';
+      noteEditor.style.display = 'none';
     };
 
-    window.deleteNote = async (id) => {
+    updateNoteBtn.onclick = async () => {
+      if (!currentNoteId) return;
+      const ref = doc(db, "users", currentUser.uid, "notes", currentNoteId);
+      await updateDoc(ref, {
+        title: editTitle.value,
+        content: editContent.value
+      });
+      alert("Note updated.");
+      location.hash = "";
+      loadNotes();
+    };
+
+    deleteNoteBtn.onclick = async () => {
+      if (!currentNoteId) return;
       if (confirm("Delete this note?")) {
-        await deleteDoc(doc(db, "users", currentUser.uid, "notes", id));
+        await deleteDoc(doc(db, "users", currentUser.uid, "notes", currentNoteId));
+        location.hash = "";
         loadNotes();
       }
     };
 
-    searchBox.oninput = () => renderNotes(notes);
+    searchBox.oninput = () => renderNotes();
   </script>
 </body>
 </html>
