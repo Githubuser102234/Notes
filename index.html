@@ -1,4 +1,3 @@
-<!-- FULL HTML CODE (SCROLL TO VIEW COMPLETELY) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -97,8 +96,9 @@
       margin-top: 16px;
     }
     #shareLink {
-      background: #28a745;
-      margin-top: 8px;
+      font-size: 12px;
+      color: gray;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -107,8 +107,8 @@
   <button id="themeToggle">🌙 Toggle Theme</button>
 
   <section id="authSection">
-    <input type="email" id="email" placeholder="Email" autocomplete="username" />
-    <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
     <button id="loginBtn">Login</button>
     <button id="signupBtn">Sign Up</button>
     <button id="resetBtn">Reset Password</button>
@@ -128,40 +128,22 @@
     <button id="backBtn">⬅ Back</button>
     <input type="text" id="editTitle" placeholder="Edit title" />
     <textarea id="editContent" rows="10"></textarea>
+    <label><input type="checkbox" id="publicCheckbox" /> Make Public</label>
+    <div id="shareLink"></div>
     <button id="updateNoteBtn">Save Changes</button>
     <button id="deleteNoteBtn" style="background:#dc3545;">Delete Note</button>
-    <button id="shareLink">Copy Share Link</button>
-  </section>
-
-  <section id="publicNote" style="display:none;">
-    <h2 id="publicTitle"></h2>
-    <p id="publicContent"></p>
-    <p><em>This is a shared note. <a href="/">Back to app</a></em></p>
   </section>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
     import {
-      getAuth,
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword,
-      onAuthStateChanged,
-      signOut,
-      sendPasswordResetEmail
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      onAuthStateChanged, signOut, sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
     import {
-      getFirestore,
-      collection,
-      addDoc,
-      getDocs,
-      getDoc,
-      doc,
-      updateDoc,
-      deleteDoc,
-      query,
-      orderBy,
-      serverTimestamp
+      getFirestore, collection, addDoc, getDocs, updateDoc,
+      deleteDoc, doc, query, orderBy, serverTimestamp, getDoc
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -182,29 +164,36 @@
     const authSection = document.getElementById('authSection');
     const mainMenu = document.getElementById('mainMenu');
     const noteEditor = document.getElementById('noteEditor');
-    const publicNote = document.getElementById('publicNote');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
     const noteTitleInput = document.getElementById('noteTitle');
     const noteTextInput = document.getElementById('noteText');
     const notesContainer = document.getElementById('notesContainer');
     const searchBox = document.getElementById('searchBox');
+    const themeToggle = document.getElementById('themeToggle');
     const editTitle = document.getElementById('editTitle');
     const editContent = document.getElementById('editContent');
-    const publicTitle = document.getElementById('publicTitle');
-    const publicContent = document.getElementById('publicContent');
-    const shareLinkBtn = document.getElementById('shareLink');
-
-    const themeToggle = document.getElementById('themeToggle');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
+    const updateNoteBtn = document.getElementById('updateNoteBtn');
+    const deleteNoteBtn = document.getElementById('deleteNoteBtn');
+    const backBtn = document.getElementById('backBtn');
+    const publicCheckbox = document.getElementById('publicCheckbox');
+    const shareLink = document.getElementById('shareLink');
 
     let currentUser = null;
     let currentNoteId = null;
     let notes = [];
 
     const saveTheme = () => localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
-    const loadTheme = () => localStorage.getItem("theme") === "dark" && document.body.classList.add("dark");
+    const loadTheme = () => {
+      const theme = localStorage.getItem("theme");
+      if (theme === "dark") document.body.classList.add("dark");
+    };
     loadTheme();
-    themeToggle.onclick = () => { document.body.classList.toggle("dark"); saveTheme(); };
+
+    themeToggle.onclick = () => {
+      document.body.classList.toggle("dark");
+      saveTheme();
+    };
 
     onAuthStateChanged(auth, user => {
       if (user) {
@@ -212,7 +201,6 @@
         authSection.style.display = 'none';
         mainMenu.style.display = 'block';
         noteEditor.style.display = 'none';
-        publicNote.style.display = 'none';
         loadNotes();
         handleHashChange();
       } else {
@@ -220,59 +208,75 @@
         authSection.style.display = 'block';
         mainMenu.style.display = 'none';
         noteEditor.style.display = 'none';
-        if (location.hash) handleHashChange();
+        handleHashChange();
       }
     });
 
     document.getElementById('signupBtn').onclick = () =>
       createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(e => alert(e.message));
-
     document.getElementById('loginBtn').onclick = () =>
       signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(e => alert(e.message));
-
     document.getElementById('logoutBtn').onclick = () => signOut(auth);
     document.getElementById('resetBtn').onclick = () => {
       if (!emailInput.value) return alert("Enter your email.");
-      sendPasswordResetEmail(auth, emailInput.value)
-        .then(() => alert("Reset email sent.")).catch(e => alert(e.message));
+      sendPasswordResetEmail(auth, emailInput.value).then(() => alert("Reset email sent.")).catch(e => alert(e.message));
     };
 
     document.getElementById('saveNoteBtn').onclick = async () => {
       const title = noteTitleInput.value.trim();
       const content = noteTextInput.value.trim();
-      if (!title || !content) return alert("Fill in both fields.");
+      if (!title || !content) return alert("Fill in both title and content.");
       const hash = Math.random().toString(36).slice(2, 8);
-      await addDoc(collection(db, "users", currentUser.uid, "notes"), {
-        title, content, hash, createdAt: serverTimestamp()
-      });
-      noteTitleInput.value = "";
-      noteTextInput.value = "";
-      await loadNotes();
+      try {
+        await addDoc(collection(db, "users", currentUser.uid, "notes"), {
+          title, content, hash, public: false, createdAt: serverTimestamp()
+        });
+        noteTitleInput.value = "";
+        noteTextInput.value = "";
+        await loadNotes();
+      } catch (e) {
+        alert("Error saving note: " + e.message);
+      }
     };
 
     async function loadNotes() {
-      const q = query(collection(db, "users", currentUser.uid, "notes"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      renderNotes();
+      if (!currentUser) return;
+      try {
+        const q = query(collection(db, "users", currentUser.uid, "notes"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderNotes();
+      } catch (e) {
+        alert("Error loading notes: " + e.message);
+      }
     }
 
     function renderNotes() {
-      const term = searchBox.value.toLowerCase();
+      const searchTerm = searchBox.value.toLowerCase();
       notesContainer.innerHTML = "";
-      const filtered = notes.filter(n => n.title.toLowerCase().includes(term) || n.content.toLowerCase().includes(term));
-      if (!filtered.length) return notesContainer.textContent = "No notes found.";
+      const filtered = notes.filter(n =>
+        n.title.toLowerCase().includes(searchTerm) || n.content.toLowerCase().includes(searchTerm)
+      );
+      if (filtered.length === 0) return notesContainer.textContent = "No notes found.";
       filtered.forEach(note => {
         const div = document.createElement("div");
         div.className = "note";
-        div.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.content.slice(0, 60))}${note.content.length > 60 ? "…" : ""}</p><small>#${escapeHtml(note.hash)}</small>`;
-        div.onclick = () => location.hash = note.hash;
+        div.tabIndex = 0;
+        div.innerHTML = `
+          <h3>${escapeHtml(note.title)}</h3>
+          <p>${escapeHtml(note.content.slice(0, 60))}${note.content.length > 60 ? "…" : ""}</p>
+          <small>${note.public ? '#p' : '#'}${escapeHtml(note.hash)}</small>
+        `;
+        div.onclick = () => location.hash = (note.public ? "#p" : "#") + note.hash;
+        div.onkeypress = e => { if (e.key === "Enter" || e.key === " ") div.click(); };
         notesContainer.appendChild(div);
       });
     }
 
     function escapeHtml(text) {
-      return text.replace(/[&<>"']/g, c => ({ '&':"&amp;", '<':"&lt;", '>':"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+      return text.replace(/[&<>"']/g, c => ({
+        '&': "&amp;", '<': "&lt;", '>': "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
     }
 
     window.onhashchange = handleHashChange;
@@ -281,35 +285,50 @@
       const hash = location.hash.slice(1);
       if (!hash) return showMainMenu();
 
-      if (currentUser) {
+      if (hash.startsWith("p")) {
+        const pubHash = hash.slice(1);
+        const found = await findPublicNote(pubHash);
+        if (!found) return showMainMenu();
+        editTitle.value = found.title;
+        editContent.value = found.content;
+        publicCheckbox.checked = true;
+        shareLink.textContent = `${location.origin}${location.pathname}#p${found.hash}`;
+        editTitle.disabled = true;
+        editContent.disabled = true;
+        publicCheckbox.disabled = true;
+        updateNoteBtn.style.display = "none";
+        deleteNoteBtn.style.display = "none";
+        showNoteEditor();
+      } else {
         const note = notes.find(n => n.hash === hash);
         if (!note) return showMainMenu();
         currentNoteId = note.id;
         editTitle.value = note.title;
         editContent.value = note.content;
+        publicCheckbox.checked = note.public || false;
+        publicCheckbox.disabled = false;
+        editTitle.disabled = false;
+        editContent.disabled = false;
+        updateNoteBtn.style.display = "";
+        deleteNoteBtn.style.display = "";
+        shareLink.textContent = note.public ? `${location.origin}${location.pathname}#p${note.hash}` : "";
         showNoteEditor();
-      } else {
-        const usersSnap = await getDocs(collection(db, "users"));
-        for (const userDoc of usersSnap.docs) {
-          const notesSnap = await getDocs(collection(db, "users", userDoc.id, "notes"));
-          for (const note of notesSnap.docs) {
-            const data = note.data();
-            if (data.hash === hash) {
-              publicTitle.textContent = data.title;
-              publicContent.textContent = data.content;
-              showPublicNote();
-              return;
-            }
-          }
-        }
-        publicNote.innerHTML = "<p>Note not found.</p>";
-        publicNote.style.display = 'block';
       }
     }
 
+    async function findPublicNote(hash) {
+      const userDocs = await getDocs(collection(db, "users"));
+      for (let userDoc of userDocs.docs) {
+        const noteDocs = await getDocs(collection(db, "users", userDoc.id, "notes"));
+        for (let note of noteDocs.docs) {
+          const data = note.data();
+          if (data.public && data.hash === hash) return data;
+        }
+      }
+      return null;
+    }
+
     function showMainMenu() {
-      authSection.style.display = 'none';
-      publicNote.style.display = 'none';
       mainMenu.style.display = 'block';
       noteEditor.style.display = 'none';
     }
@@ -319,36 +338,38 @@
       noteEditor.style.display = 'block';
     }
 
-    function showPublicNote() {
-      mainMenu.style.display = 'none';
-      authSection.style.display = 'none';
-      publicNote.style.display = 'block';
-      noteEditor.style.display = 'none';
-    }
-
-    document.getElementById('backBtn').onclick = () => { location.hash = ""; showMainMenu(); };
-
-    document.getElementById('updateNoteBtn').onclick = async () => {
-      const noteRef = doc(db, "users", currentUser.uid, "notes", currentNoteId);
-      await updateDoc(noteRef, { title: editTitle.value.trim(), content: editContent.value.trim() });
-      alert("Note updated.");
+    backBtn.onclick = () => {
       location.hash = "";
-      await loadNotes();
+      showMainMenu();
     };
 
-    document.getElementById('deleteNoteBtn').onclick = async () => {
+    updateNoteBtn.onclick = async () => {
+      if (!currentNoteId) return alert("No note selected.");
+      try {
+        const noteRef = doc(db, "users", currentUser.uid, "notes", currentNoteId);
+        await updateDoc(noteRef, {
+          title: editTitle.value.trim(),
+          content: editContent.value.trim(),
+          public: publicCheckbox.checked
+        });
+        alert("Note updated.");
+        location.hash = "";
+        await loadNotes();
+      } catch (e) {
+        alert("Error updating note: " + e.message);
+      }
+    };
+
+    deleteNoteBtn.onclick = async () => {
+      if (!currentNoteId) return alert("No note selected.");
       if (!confirm("Delete this note?")) return;
-      await deleteDoc(doc(db, "users", currentUser.uid, "notes", currentNoteId));
-      location.hash = "";
-      await loadNotes();
-    };
-
-    shareLinkBtn.onclick = async () => {
-      const hash = notes.find(n => n.id === currentNoteId)?.hash;
-      if (!hash) return alert("No note selected.");
-      const url = `${location.origin}${location.pathname}#${hash}`;
-      await navigator.clipboard.writeText(url);
-      alert("Link copied: " + url);
+      try {
+        await deleteDoc(doc(db, "users", currentUser.uid, "notes", currentNoteId));
+        location.hash = "";
+        await loadNotes();
+      } catch (e) {
+        alert("Error deleting note: " + e.message);
+      }
     };
 
     searchBox.oninput = () => renderNotes();
