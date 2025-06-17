@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Public Note View</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      background: #fff;
+      color: #000;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #f3f3f3;
+      padding: 15px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="noteTitle">Loading...</h1>
+  <pre id="noteContent"></pre>
+  <small id="noteHash" style="color:gray;"></small>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore,
+      collectionGroup,
+      query,
+      where,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDEkpRfo6k8H_arfsnAGyHztWU_sj_pjnY",
+      authDomain: "notes-9c204.firebaseapp.com",
+      projectId: "notes-9c204",
+      storageBucket: "notes-9c204.firebasestorage.app",
+      messagingSenderId: "1059724833534",
+      appId: "1:1059724833534:web:a6360301650585a248ebaf",
+      measurementId: "G-MZ9R21GTQJ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, c => ({
+        '&': "&amp;",
+        '<': "&lt;",
+        '>': "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[c]);
+    }
+
+    async function loadPublicNote(hash) {
+      const titleEl = document.getElementById('noteTitle');
+      const contentEl = document.getElementById('noteContent');
+      const hashEl = document.getElementById('noteHash');
+
+      try {
+        // Query all notes with matching hash using collectionGroup to get notes across all users
+        const q = query(collectionGroup(db, "notes"), where("hash", "==", hash));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          titleEl.textContent = "Note not found or no longer available.";
+          contentEl.textContent = "";
+          hashEl.textContent = "";
+          return;
+        }
+        const docData = snapshot.docs[0].data();
+        titleEl.textContent = escapeHtml(docData.title);
+        contentEl.textContent = docData.content;
+        hashEl.textContent = `#${escapeHtml(docData.hash)}`;
+      } catch (e) {
+        titleEl.textContent = "Error loading note.";
+        contentEl.textContent = "";
+        hashEl.textContent = "";
+        console.error(e);
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const hash = params.get('hash');
+
+    if (hash) {
+      loadPublicNote(hash);
+    } else {
+      document.getElementById('noteTitle').textContent = "No note hash provided.";
+    }
+  </script>
+</body>
+</html>
