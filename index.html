@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Notes</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
+    input, textarea, button { width: 100%; margin: 10px 0; padding: 10px; box-sizing: border-box; }
+    .note { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    .note h3 { margin: 0 0 5px; }
+  </style>
+</head>
+<body>
+
+  <h1>My Notes</h1>
+
+  <div id="authSection">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button id="loginBtn">Login</button>
+    <button id="signupBtn">Sign Up</button>
+  </div>
+
+  <div id="noteSection" style="display: none;">
+    <button id="logoutBtn">Logout</button>
+    <input type="text" id="noteTitle" placeholder="Note title">
+    <textarea id="noteText" rows="4" placeholder="Write your note here..."></textarea>
+    <button id="saveNoteBtn">Save Note</button>
+
+    <h2>Your Saved Notes</h2>
+    <div id="notesContainer"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDEkpRfo6k8H_arfsnAGyHztWU_sj_pjnY",
+      authDomain: "notes-9c204.firebaseapp.com",
+      projectId: "notes-9c204",
+      storageBucket: "notes-9c204.firebasestorage.app",
+      messagingSenderId: "1059724833534",
+      appId: "1:1059724833534:web:a6360301650585a248ebaf",
+      measurementId: "G-MZ9R21GTQJ"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // DOM elements
+    const authSection = document.getElementById('authSection');
+    const noteSection = document.getElementById('noteSection');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const noteTitleInput = document.getElementById('noteTitle');
+    const noteTextInput = document.getElementById('noteText');
+    const notesContainer = document.getElementById('notesContainer');
+
+    // Auth state listener
+    let currentUser = null;
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        currentUser = user;
+        authSection.style.display = 'none';
+        noteSection.style.display = 'block';
+        loadNotes();
+      } else {
+        currentUser = null;
+        authSection.style.display = 'block';
+        noteSection.style.display = 'none';
+      }
+    });
+
+    // Auth functions
+    document.getElementById('signupBtn').addEventListener('click', async () => {
+      try {
+        await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      try {
+        await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    // Save note
+    document.getElementById('saveNoteBtn').addEventListener('click', async () => {
+      const title = noteTitleInput.value.trim();
+      const content = noteTextInput.value.trim();
+
+      if (!title || !content) {
+        alert("Fill in both fields.");
+        return;
+      }
+
+      try {
+        const userNotesRef = collection(db, "users", currentUser.uid, "notes");
+        await addDoc(userNotesRef, {
+          title: title,
+          content: content,
+          createdAt: serverTimestamp()
+        });
+        noteTitleInput.value = "";
+        noteTextInput.value = "";
+        loadNotes();
+      } catch (error) {
+        alert("Error saving note: " + error.message);
+      }
+    });
+
+    // Load notes
+    async function loadNotes() {
+      const userNotesRef = collection(db, "users", currentUser.uid, "notes");
+      const q = query(userNotesRef, orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+
+      notesContainer.innerHTML = "";
+
+      if (snapshot.empty) {
+        notesContainer.innerHTML = "<p>No notes yet.</p>";
+        return;
+      }
+
+      snapshot.forEach(doc => {
+        const note = doc.data();
+        const div = document.createElement("div");
+        div.className = "note";
+        div.innerHTML = `<h3>${note.title}</h3><p>${note.content}</p>`;
+        notesContainer.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
