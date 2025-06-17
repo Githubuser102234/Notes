@@ -1,3 +1,4 @@
+<!-- FULL HTML CODE (SCROLL TO VIEW COMPLETELY) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,8 +6,100 @@
   <title>My Notes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* [Styling same as your original with dark mode, cards, etc.] */
-    /* omitted here for brevity, but will be included in real output */
+    :root {
+      --bg: #fff;
+      --text: #000;
+      --card: #f3f3f3;
+      --primary: #007bff;
+      --primary-hover: #0056b3;
+    }
+    body.dark {
+      --bg: #121212;
+      --text: #fff;
+      --card: #1f1f1f;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    input, textarea, button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: var(--card);
+      color: var(--text);
+      transition: background-color 0.3s, color 0.3s;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #666;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background: var(--primary-hover);
+    }
+    .note {
+      background: var(--card);
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.3s;
+    }
+    .note:hover {
+      background: var(--primary);
+      color: white;
+    }
+    .note h3 {
+      margin: 0 0 5px;
+      word-break: break-word;
+    }
+    .note p {
+      margin: 0;
+      font-size: 14px;
+      color: inherit;
+      word-break: break-word;
+    }
+    .note small {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: gray;
+      user-select: text;
+    }
+    #themeToggle {
+      float: right;
+      margin-top: -38px;
+      width: auto;
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: 20px;
+    }
+    #noteEditor {
+      display: none;
+    }
+    #searchBox {
+      margin-top: 16px;
+    }
+    #shareLink {
+      background: #28a745;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -14,8 +107,8 @@
   <button id="themeToggle">🌙 Toggle Theme</button>
 
   <section id="authSection">
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
+    <input type="email" id="email" placeholder="Email" autocomplete="username" />
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" />
     <button id="loginBtn">Login</button>
     <button id="signupBtn">Sign Up</button>
     <button id="resetBtn">Reset Password</button>
@@ -25,22 +118,25 @@
     <button id="logoutBtn">Logout</button>
     <input type="text" id="noteTitle" placeholder="Note title" />
     <textarea id="noteText" rows="3" placeholder="Write your note..."></textarea>
-    <label><input type="checkbox" id="notePublic" /> Public</label>
     <button id="saveNoteBtn">Save Note</button>
-
     <input type="text" id="searchBox" placeholder="Search notes..." />
-
     <h2>Your Notes</h2>
     <div id="notesContainer"></div>
   </section>
 
-  <section id="noteEditor" style="display:none;">
+  <section id="noteEditor">
     <button id="backBtn">⬅ Back</button>
     <input type="text" id="editTitle" placeholder="Edit title" />
     <textarea id="editContent" rows="10"></textarea>
-    <label><input type="checkbox" id="editPublic" /> Public</label>
     <button id="updateNoteBtn">Save Changes</button>
     <button id="deleteNoteBtn" style="background:#dc3545;">Delete Note</button>
+    <button id="shareLink">Copy Share Link</button>
+  </section>
+
+  <section id="publicNote" style="display:none;">
+    <h2 id="publicTitle"></h2>
+    <p id="publicContent"></p>
+    <p><em>This is a shared note. <a href="/">Back to app</a></em></p>
   </section>
 
   <script type="module">
@@ -59,9 +155,10 @@
       collection,
       addDoc,
       getDocs,
+      getDoc,
+      doc,
       updateDoc,
       deleteDoc,
-      doc,
       query,
       orderBy,
       serverTimestamp
@@ -85,28 +182,27 @@
     const authSection = document.getElementById('authSection');
     const mainMenu = document.getElementById('mainMenu');
     const noteEditor = document.getElementById('noteEditor');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
+    const publicNote = document.getElementById('publicNote');
     const noteTitleInput = document.getElementById('noteTitle');
     const noteTextInput = document.getElementById('noteText');
-    const notePublicInput = document.getElementById('notePublic');
     const notesContainer = document.getElementById('notesContainer');
     const searchBox = document.getElementById('searchBox');
-    const themeToggle = document.getElementById('themeToggle');
-
     const editTitle = document.getElementById('editTitle');
     const editContent = document.getElementById('editContent');
-    const editPublic = document.getElementById('editPublic');
-    const updateNoteBtn = document.getElementById('updateNoteBtn');
-    const deleteNoteBtn = document.getElementById('deleteNoteBtn');
-    const backBtn = document.getElementById('backBtn');
+    const publicTitle = document.getElementById('publicTitle');
+    const publicContent = document.getElementById('publicContent');
+    const shareLinkBtn = document.getElementById('shareLink');
+
+    const themeToggle = document.getElementById('themeToggle');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
 
     let currentUser = null;
     let currentNoteId = null;
     let notes = [];
 
     const saveTheme = () => localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
-    const loadTheme = () => { if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark"); };
+    const loadTheme = () => localStorage.getItem("theme") === "dark" && document.body.classList.add("dark");
     loadTheme();
     themeToggle.onclick = () => { document.body.classList.toggle("dark"); saveTheme(); };
 
@@ -116,6 +212,7 @@
         authSection.style.display = 'none';
         mainMenu.style.display = 'block';
         noteEditor.style.display = 'none';
+        publicNote.style.display = 'none';
         loadNotes();
         handleHashChange();
       } else {
@@ -123,101 +220,96 @@
         authSection.style.display = 'block';
         mainMenu.style.display = 'none';
         noteEditor.style.display = 'none';
+        if (location.hash) handleHashChange();
       }
     });
 
     document.getElementById('signupBtn').onclick = () =>
       createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(e => alert(e.message));
+
     document.getElementById('loginBtn').onclick = () =>
       signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(e => alert(e.message));
+
     document.getElementById('logoutBtn').onclick = () => signOut(auth);
     document.getElementById('resetBtn').onclick = () => {
-      if (!emailInput.value) return alert("Please enter your email for password reset.");
+      if (!emailInput.value) return alert("Enter your email.");
       sendPasswordResetEmail(auth, emailInput.value)
-        .then(() => alert("Password reset email sent."))
-        .catch(e => alert(e.message));
+        .then(() => alert("Reset email sent.")).catch(e => alert(e.message));
     };
 
     document.getElementById('saveNoteBtn').onclick = async () => {
       const title = noteTitleInput.value.trim();
       const content = noteTextInput.value.trim();
-      const isPublic = notePublicInput.checked;
-      if (!title || !content) return alert("Fill in both title and content.");
+      if (!title || !content) return alert("Fill in both fields.");
       const hash = Math.random().toString(36).slice(2, 8);
-      try {
-        await addDoc(collection(db, "users", currentUser.uid, "notes"), {
-          title, content, hash, public: isPublic, createdAt: serverTimestamp()
-        });
-        noteTitleInput.value = "";
-        noteTextInput.value = "";
-        notePublicInput.checked = false;
-        await loadNotes();
-      } catch (e) {
-        alert("Error saving note: " + e.message);
-      }
+      await addDoc(collection(db, "users", currentUser.uid, "notes"), {
+        title, content, hash, createdAt: serverTimestamp()
+      });
+      noteTitleInput.value = "";
+      noteTextInput.value = "";
+      await loadNotes();
     };
 
     async function loadNotes() {
-      if (!currentUser) return;
-      try {
-        const notesRef = collection(db, "users", currentUser.uid, "notes");
-        const q = query(notesRef, orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
-        notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderNotes();
-      } catch (e) {
-        alert("Error loading notes: " + e.message);
-      }
+      const q = query(collection(db, "users", currentUser.uid, "notes"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderNotes();
     }
 
     function renderNotes() {
-      const searchTerm = searchBox.value.toLowerCase();
+      const term = searchBox.value.toLowerCase();
       notesContainer.innerHTML = "";
-      const filtered = notes.filter(n =>
-        n.title.toLowerCase().includes(searchTerm) || n.content.toLowerCase().includes(searchTerm)
-      );
-      if (filtered.length === 0) {
-        notesContainer.textContent = "No notes found.";
-        return;
-      }
+      const filtered = notes.filter(n => n.title.toLowerCase().includes(term) || n.content.toLowerCase().includes(term));
+      if (!filtered.length) return notesContainer.textContent = "No notes found.";
       filtered.forEach(note => {
         const div = document.createElement("div");
         div.className = "note";
-        div.tabIndex = 0;
-        div.setAttribute("role", "button");
-        div.innerHTML = `
-          <h3>${escapeHtml(note.title)}</h3>
-          <p>${escapeHtml(note.content.slice(0, 60))}${note.content.length > 60 ? "…" : ""}</p>
-          <small>#${note.public ? escapeHtml(note.hash) : "p:" + escapeHtml(note.hash)}</small>
-        `;
-        div.onclick = () => location.hash = note.public ? note.hash : "p:" + note.hash;
-        div.onkeypress = e => { if (e.key === "Enter" || e.key === " ") div.click(); };
+        div.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.content.slice(0, 60))}${note.content.length > 60 ? "…" : ""}</p><small>#${escapeHtml(note.hash)}</small>`;
+        div.onclick = () => location.hash = note.hash;
         notesContainer.appendChild(div);
       });
     }
 
     function escapeHtml(text) {
-      return text.replace(/[&<>"']/g, c => ({
-        '&': "&amp;", '<': "&lt;", '>': "&gt;", '"': "&quot;", "'": "&#39;"
-      })[c]);
+      return text.replace(/[&<>"']/g, c => ({ '&':"&amp;", '<':"&lt;", '>':"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
     }
 
     window.onhashchange = handleHashChange;
 
     async function handleHashChange() {
       const hash = location.hash.slice(1);
-      if (!hash || !currentUser) return showMainMenu();
-      const actualHash = hash.startsWith("p:") ? hash.slice(2) : hash;
-      const note = notes.find(n => n.hash === actualHash);
-      if (!note || (!note.public && hash.startsWith("p:") === false)) return showMainMenu();
-      currentNoteId = note.id;
-      editTitle.value = note.title;
-      editContent.value = note.content;
-      editPublic.checked = note.public;
-      showNoteEditor();
+      if (!hash) return showMainMenu();
+
+      if (currentUser) {
+        const note = notes.find(n => n.hash === hash);
+        if (!note) return showMainMenu();
+        currentNoteId = note.id;
+        editTitle.value = note.title;
+        editContent.value = note.content;
+        showNoteEditor();
+      } else {
+        const usersSnap = await getDocs(collection(db, "users"));
+        for (const userDoc of usersSnap.docs) {
+          const notesSnap = await getDocs(collection(db, "users", userDoc.id, "notes"));
+          for (const note of notesSnap.docs) {
+            const data = note.data();
+            if (data.hash === hash) {
+              publicTitle.textContent = data.title;
+              publicContent.textContent = data.content;
+              showPublicNote();
+              return;
+            }
+          }
+        }
+        publicNote.innerHTML = "<p>Note not found.</p>";
+        publicNote.style.display = 'block';
+      }
     }
 
     function showMainMenu() {
+      authSection.style.display = 'none';
+      publicNote.style.display = 'none';
       mainMenu.style.display = 'block';
       noteEditor.style.display = 'none';
     }
@@ -227,38 +319,36 @@
       noteEditor.style.display = 'block';
     }
 
-    backBtn.onclick = () => {
+    function showPublicNote() {
+      mainMenu.style.display = 'none';
+      authSection.style.display = 'none';
+      publicNote.style.display = 'block';
+      noteEditor.style.display = 'none';
+    }
+
+    document.getElementById('backBtn').onclick = () => { location.hash = ""; showMainMenu(); };
+
+    document.getElementById('updateNoteBtn').onclick = async () => {
+      const noteRef = doc(db, "users", currentUser.uid, "notes", currentNoteId);
+      await updateDoc(noteRef, { title: editTitle.value.trim(), content: editContent.value.trim() });
+      alert("Note updated.");
       location.hash = "";
-      showMainMenu();
+      await loadNotes();
     };
 
-    updateNoteBtn.onclick = async () => {
-      if (!currentNoteId) return alert("No note selected.");
-      try {
-        const noteRef = doc(db, "users", currentUser.uid, "notes", currentNoteId);
-        await updateDoc(noteRef, {
-          title: editTitle.value.trim(),
-          content: editContent.value.trim(),
-          public: editPublic.checked
-        });
-        alert("Note updated.");
-        location.hash = "";
-        await loadNotes();
-      } catch (e) {
-        alert("Error updating note: " + e.message);
-      }
+    document.getElementById('deleteNoteBtn').onclick = async () => {
+      if (!confirm("Delete this note?")) return;
+      await deleteDoc(doc(db, "users", currentUser.uid, "notes", currentNoteId));
+      location.hash = "";
+      await loadNotes();
     };
 
-    deleteNoteBtn.onclick = async () => {
-      if (!currentNoteId) return alert("No note selected.");
-      if (!confirm("Are you sure you want to delete this note?")) return;
-      try {
-        await deleteDoc(doc(db, "users", currentUser.uid, "notes", currentNoteId));
-        location.hash = "";
-        await loadNotes();
-      } catch (e) {
-        alert("Error deleting note: " + e.message);
-      }
+    shareLinkBtn.onclick = async () => {
+      const hash = notes.find(n => n.id === currentNoteId)?.hash;
+      if (!hash) return alert("No note selected.");
+      const url = `${location.origin}${location.pathname}#${hash}`;
+      await navigator.clipboard.writeText(url);
+      alert("Link copied: " + url);
     };
 
     searchBox.oninput = () => renderNotes();
